@@ -30,6 +30,7 @@ function parseGrid(gridLines) {
       else if (ch === "r") colors.set(k, "red");
       else if (ch === "g") colors.set(k, "green");
       else if (ch === "b") colors.set(k, "blue");
+      // "." is just floor
     }
   }
 
@@ -64,81 +65,16 @@ function baseToDir(base) {
   }
 }
 
-/* --------------------------
-   Python code generation
---------------------------- */
-
-function moveCall(base) {
+/* NEW: map base -> python function-ish token (no parentheses to match your example) */
+function baseToPyMove(base) {
   switch (base) {
-    case "up": return "move_up()";
-    case "down": return "move_down()";
-    case "left": return "move_left()";
-    case "right": return "move_right()";
+    case "up": return "move_up";
+    case "down": return "move_down";
+    case "left": return "move_left";
+    case "right": return "move_right";
     default: return null;
   }
 }
-
-function pythonLinesForSlot(slot, indent, idx) {
-  if (!slot.base) return [`${indent}# slot ${idx + 1}: (empty)`];
-
-  if (slot.base === "f0{") return [`${indent}# f0{`];
-  if (slot.base === "}f0") return [`${indent}# }f0`];
-
-  const call = moveCall(slot.base);
-  if (!call) return [`${indent}# slot ${idx + 1}: unknown '${slot.base}'`];
-
-  if (slot.cond) {
-    return [
-      `${indent}if is_${slot.cond}():`,
-      `${indent}    ${call}`,
-    ];
-  }
-
-  return [`${indent}${call}`];
-}
-
-function pythonFromSlots(slots) {
-  let ls = -1, le = -1;
-  for (let i = 0; i < slots.length; i++) {
-    if (slots[i].base === "f0{" && ls === -1) ls = i;
-    else if (slots[i].base === "}f0" && ls !== -1) { le = i; break; }
-  }
-  const hasLoop = (ls !== -1 && le !== -1 && le > ls);
-
-  const lines = [];
-  lines.push("# Generated from your blocks");
-  lines.push("");
-
-  if (hasLoop) {
-    lines.push("while True:  # f0 loop");
-
-    let bodyHasReal = false;
-    for (let i = ls + 1; i < le; i++) {
-      const chunk = pythonLinesForSlot(slots[i], "    ", i);
-      for (const ln of chunk) {
-        lines.push(ln);
-        const t = ln.trim();
-        if (t.startsWith("move_") || t.startsWith("if ")) bodyHasReal = true;
-      }
-    }
-
-    if (!bodyHasReal) lines.push("    pass");
-  } else {
-    let hasAnything = false;
-    for (let i = 0; i < slots.length; i++) {
-      const chunk = pythonLinesForSlot(slots[i], "", i);
-      chunk.forEach((ln) => lines.push(ln));
-      if (slots[i].base) hasAnything = true;
-    }
-    if (!hasAnything) lines.push("pass");
-  }
-
-  return lines.join("\n");
-}
-
-/* --------------------------
-   Main UI
---------------------------- */
 
 (function main() {
   const cfg = window.BOARD_CONFIG;
@@ -149,12 +85,11 @@ function pythonFromSlots(slots) {
   const slotsEl = document.getElementById("slots");
   const statusEl = document.getElementById("status");
 
+  const codeView = document.getElementById("codeView"); // NEW
+
   const runBtn = document.getElementById("runBtn");
   const restartBtn = document.getElementById("restartBtn");
   const resetSlotsBtn = document.getElementById("resetSlotsBtn");
-
-  const pycodeEl = document.getElementById("pycode");
-  const copyPyBtn = document.getElementById("copyPyBtn");
 
   document.documentElement.style.setProperty("--cell", `${cfg.cellPx}px`);
 
@@ -164,7 +99,7 @@ function pythonFromSlots(slots) {
   board.style.gridTemplateColumns = `repeat(${w}, var(--cell))`;
   board.style.gridTemplateRows = `repeat(${h}, var(--cell))`;
 
-  // Render grid
+  // ----- Render grid -----
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const cell = document.createElement("div");
@@ -191,7 +126,7 @@ function pythonFromSlots(slots) {
     }
   }
 
-  // Avatar
+  // ----- Avatar -----
   const avatar = document.createElement("img");
   avatar.id = "avatar";
 
@@ -235,7 +170,7 @@ function pythonFromSlots(slots) {
   setAvatarPos(player.x, player.y, true);
   spriteIdle();
 
-  // Palette
+  // ----- Palette blocks -----
   const paletteItems = [
     { kind: "base", value: "up", label: "↑" },
     { kind: "base", value: "down", label: "↓" },
@@ -255,6 +190,8 @@ function pythonFromSlots(slots) {
     if (item.kind === "cond") el.classList.add("cond", item.value);
     el.textContent = item.label;
     el.draggable = true;
+    el.dataset.kind = item.kind;
+    el.dataset.value = item.value;
 
     el.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", JSON.stringify({ kind: item.kind, value: item.value }));
@@ -263,12 +200,94 @@ function pythonFromSlots(slots) {
     palette.appendChild(el);
   }
 
-  // Slots
+  // ----- Slots -----
   const slots = [];
   const slotCount = clamp(cfg.slotCount || 5, 1, 30);
 
-  function updatePythonView() {
-    pycodeEl.textContent = pythonFromSlots(slots);
+  /* NEW: generate python code from current slots */
+  function findLoopBoundsFromSlots() {
+    let ls = -1;
+    let le = -1;
+
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i].base === "f0{") { ls = i; break; }
+    }
+    if (ls >= 0) {
+      for (let i = ls + 1; i < slots.length; i++) {
+        if (slots[i].base === "}f0") { le = i; break; }
+      }
+    }
+    return { ls, le, hasLoop: ls >= 0 && le > ls };
+  }
+
+  function slotToPyLines(slot, indent) {
+    if (!slot.base) return [];
+
+    // loop tokens handled at higher level
+    if (slot.base === "f0{" || slot.base === "}f0") return [];
+
+    const move = baseToPyMove(slot.base);
+    if (!move) return [];
+
+    if (slot.cond) {
+      return [
+        `${indent}if is_${slot.cond}:`,
+        `${indent}  ${move}`
+      ];
+    }
+    return [`${indent}${move}`];
+  }
+
+  function updateCodeView() {
+    const indent = "  "; // matches your sample
+    const lines = [];
+
+    // if nothing placed
+    const any = slots.some(s => !!s.base);
+    if (!any) {
+      codeView.textContent = "# Drag blocks into slots to generate code\n";
+      return;
+    }
+
+    const { ls, le, hasLoop } = findLoopBoundsFromSlots();
+
+    if (hasLoop) {
+      // pre-loop statements (run once)
+      for (let i = 0; i < ls; i++) {
+        lines.push(...slotToPyLines(slots[i], ""));
+      }
+
+      // loop body
+      lines.push("while True:");
+      let bodyHasAnything = false;
+      for (let i = ls + 1; i < le; i++) {
+        const s = slots[i];
+        const py = slotToPyLines(s, indent);
+        if (py.length > 0) bodyHasAnything = true;
+        lines.push(...py);
+      }
+      if (!bodyHasAnything) {
+        lines.push(`${indent}pass`);
+      }
+
+      // post-loop (technically unreachable)
+      const postLines = [];
+      for (let i = le + 1; i < slots.length; i++) {
+        postLines.push(...slotToPyLines(slots[i], ""));
+      }
+      if (postLines.length > 0) {
+        lines.push("");
+        lines.push("# Note: statements after an infinite loop do not run");
+        lines.push(...postLines);
+      }
+    } else {
+      // no loop tokens -> straight-line code
+      for (let i = 0; i < slots.length; i++) {
+        lines.push(...slotToPyLines(slots[i], ""));
+      }
+    }
+
+    codeView.textContent = lines.join("\n") + "\n";
   }
 
   function renderSlot(idx) {
@@ -295,13 +314,15 @@ function pythonFromSlots(slots) {
       tag.textContent = `if_${slot.cond}`;
       el.appendChild(tag);
     }
+
+    // NEW: refresh code whenever a slot re-renders
+    updateCodeView();
   }
 
   function clearSlot(idx) {
     slots[idx].base = null;
     slots[idx].cond = null;
     renderSlot(idx);
-    updatePythonView();
   }
 
   for (let i = 0; i < slotCount; i++) {
@@ -325,17 +346,17 @@ function pythonFromSlots(slots) {
 
       if (payload.kind === "base") {
         slot.base = payload.value;
-        if (!baseToDir(slot.base)) slot.cond = null; // conditions only apply to moves
+        // If base isn't a move, drop any condition (since it wouldn't apply)
+        if (!baseToDir(slot.base)) slot.cond = null;
         renderSlot(idx);
-        updatePythonView();
         return;
       }
 
       if (payload.kind === "cond") {
+        // Only apply condition if slot already has a move
         if (slot.base && baseToDir(slot.base)) {
           slot.cond = payload.value;
           renderSlot(idx);
-          updatePythonView();
         }
         return;
       }
@@ -348,27 +369,21 @@ function pythonFromSlots(slots) {
     renderSlot(i);
   }
 
-  updatePythonView();
-
-  copyPyBtn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(pycodeEl.textContent || "");
-      statusEl.textContent = "Python code copied.";
-    } catch {
-      statusEl.textContent = "Copy failed (browser permissions).";
-    }
-  });
-
-  // Program compile & run
+  // ----- Program compile & execution -----
   function compileProgram() {
-    // tokens used by runner:
     // {t:"loopStart"} {t:"loopEnd"} {t:"move", dir:"U|D|L|R", cond:null|"red|green|blue"}
     const prog = [];
     for (const s of slots) {
       if (!s.base) continue;
 
-      if (s.base === "f0{") { prog.push({ t: "loopStart" }); continue; }
-      if (s.base === "}f0") { prog.push({ t: "loopEnd" }); continue; }
+      if (s.base === "f0{") {
+        prog.push({ t: "loopStart" });
+        continue;
+      }
+      if (s.base === "}f0") {
+        prog.push({ t: "loopEnd" });
+        continue;
+      }
 
       const dir = baseToDir(s.base);
       if (!dir) continue;
@@ -393,7 +408,8 @@ function pythonFromSlots(slots) {
   }
 
   function tileColorAt(x, y) {
-    return colors.get(`${x},${y}`) || null;
+    const k = `${x},${y}`;
+    return colors.get(k) || null;
   }
 
   function isWall(x, y) {
@@ -433,18 +449,29 @@ function pythonFromSlots(slots) {
 
       if (ip >= prog.length) {
         if (hasLoop) ip = ls + 1;
-        else { statusEl.textContent = "Finished program."; break; }
+        else {
+          statusEl.textContent = "Finished program.";
+          break;
+        }
       }
 
       const tok = prog[ip];
 
       if (tok.t === "loopStart") { ip += 1; continue; }
-      if (tok.t === "loopEnd") { ip = (hasLoop ? ls + 1 : ip + 1); continue; }
+      if (tok.t === "loopEnd") {
+        if (hasLoop) ip = ls + 1;
+        else ip += 1;
+        continue;
+      }
 
       if (tok.t === "move") {
         if (tok.cond) {
           const c = tileColorAt(player.x, player.y);
-          if (c !== tok.cond) { ip += 1; steps += 1; continue; }
+          if (c !== tok.cond) {
+            ip += 1;
+            steps += 1;
+            continue;
+          }
         }
 
         const { dx, dy } = dirDelta(tok.dir);
@@ -504,11 +531,11 @@ function pythonFromSlots(slots) {
       slots[i].cond = null;
       renderSlot(i);
     }
-    updatePythonView();
     statusEl.textContent = "Slots cleared.";
     runBtn.disabled = false;
     running = false;
     spriteIdle();
+    updateCodeView();
   }
 
   runBtn.addEventListener("click", () => {
@@ -520,4 +547,5 @@ function pythonFromSlots(slots) {
   resetSlotsBtn.addEventListener("click", resetSlots);
 
   statusEl.textContent = "Ready. Drag blocks into slots, then Run.";
+  updateCodeView(); // initial
 })();
