@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /*__CSS__*/
+    </style>
+  </head>
+
+  <body>
+    <div id="wrap">
+      <div id="top">
+        <div id="boardWrap">
+          <div id="board"></div>
+          <div id="overlay"></div>
+        </div>
+      </div>
+
+      <div id="mid">
+        <div class="sectionTitle">Blocks</div>
+        <div id="palette"></div>
+      </div>
+
+      <div id="bot">
+        <div class="sectionTitle">Program</div>
+        <div id="slots"></div>
+
+        <div id="controls">
+          <button id="runBtn">Run</button>
+          <button id="restartBtn">Restart</button>
+          <button id="resetSlotsBtn">Reset slots</button>
+          <div id="status">Ready.</div>
+        </div>
+
+        <div id="codePanel">
+          <div class="codeHeader">
+            <div class="sectionTitle" style="margin:0;">Python code</div>
+            <button id="copyPyBtn" type="button">Copy</button>
+          </div>
+          <pre id="pycode"></pre>
+          <div class="codeHint">
+            Generated from your slots (uses a loop if you placed <code>f0{</code> ... <code>}f0</code>).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.BOARD_CONFIG = __CONFIG_JSON__;
+      window.SPRITES = {
+        idle: "__IDLE_GIF__",
+        walk: "__WALK_GIF__"
+      };
+    </script>
+
+    <script>
+      //__JS__//
+    </script>
+  </body>
+</html>

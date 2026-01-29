@@ -1,0 +1,237 @@
+:root {
+  --cell: 44px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #ffffff;
+  color: #111;
+}
+
+#wrap {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionTitle {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+#boardWrap {
+  position: relative;
+  width: max-content;
+  background: #f5f6f8;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+#board {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  user-select: none;
+  width: max-content;
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: #e9ecef;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell.wall {
+  background: #1f1f1f;
+  border-color: rgba(255,255,255,0.06);
+}
+
+.cell.ladder {
+  background: #c9b037;
+}
+
+.cell.red { background: #e24a4a; }
+.cell.green { background: #4ad96c; }
+.cell.blue { background: #3f7bff; }
+
+.cell.goal {
+  background: #fbe18a;
+}
+
+.cell .goalIcon {
+  filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.2));
+}
+
+#avatar {
+  position: absolute;
+  width: calc(var(--cell) * 0.82);
+  height: calc(var(--cell) * 0.82);
+  transform: translate(0px, 0px);
+  transition: transform 220ms linear;
+  pointer-events: none;
+}
+
+#palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #f5f6f8;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  width: fit-content;
+}
+
+.block {
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: grab;
+  user-select: none;
+  min-width: 64px;
+  text-align: center;
+  font-weight: 600;
+}
+.block:active { cursor: grabbing; }
+
+.block.cond.red { background: rgba(226, 74, 74, 0.18); }
+.block.cond.green { background: rgba(74, 217, 108, 0.18); }
+.block.cond.blue { background: rgba(63, 123, 255, 0.18); }
+
+#slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #f5f6f8;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  width: fit-content;
+}
+
+.slot {
+  width: 78px;
+  height: 52px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  color: rgba(0,0,0,0.65);
+  padding: 6px;
+}
+
+.slot.filled { border-style: solid; }
+
+.slot.tint-red { background: rgba(226, 74, 74, 0.18); }
+.slot.tint-green { background: rgba(74, 217, 108, 0.18); }
+.slot.tint-blue { background: rgba(63, 123, 255, 0.18); }
+
+.slot .main {
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.slot .tag {
+  font-size: 11px;
+  opacity: 0.9;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.6);
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+#controls button {
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+#controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#status {
+  margin-left: 6px;
+  font-size: 14px;
+  color: rgba(0,0,0,0.75);
+}
+
+/* Code panel */
+#codePanel {
+  margin-top: 12px;
+  background: #f5f6f8;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 14px;
+  padding: 10px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#copyPyBtn {
+  border: 1px solid rgba(0,0,0,0.12);
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+#pycode {
+  margin: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.08);
+  overflow: auto;
+  max-width: min(900px, 92vw);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.codeHint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(0,0,0,0.65);
+}
+.codeHint code {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
